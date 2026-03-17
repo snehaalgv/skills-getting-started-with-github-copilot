@@ -87,10 +87,14 @@ class TestGetActivities:
 
     def test_get_activities_returns_all_activities(self, client, reset_activities):
         """Test that GET /activities returns all available activities"""
-        response = client.get("/activities")
+        # Arrange: No setup needed for this test
         
-        assert response.status_code == 200
+        # Act
+        response = client.get("/activities")
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 200
         assert len(data) == 9
         assert "Chess Club" in data
         assert "Programming Class" in data
@@ -98,10 +102,15 @@ class TestGetActivities:
 
     def test_get_activities_includes_activity_details(self, client, reset_activities):
         """Test that each activity includes required fields"""
+        # Arrange: No setup needed
+        
+        # Act
         response = client.get("/activities")
         data = response.json()
-        
         activity = data["Chess Club"]
+        
+        # Assert
+        assert response.status_code == 200
         assert "description" in activity
         assert "schedule" in activity
         assert "max_participants" in activity
@@ -109,9 +118,14 @@ class TestGetActivities:
 
     def test_get_activities_includes_participant_list(self, client, reset_activities):
         """Test that participant list is included in activity data"""
+        # Arrange: No setup needed
+        
+        # Act
         response = client.get("/activities")
         data = response.json()
         
+        # Assert
+        assert response.status_code == 200
         assert isinstance(data["Chess Club"]["participants"], list)
         assert "michael@mergington.edu" in data["Chess Club"]["participants"]
         assert "daniel@mergington.edu" in data["Chess Club"]["participants"]
@@ -122,79 +136,118 @@ class TestSignupForActivity:
 
     def test_signup_success(self, client, reset_activities):
         """Test successful signup for an activity"""
-        response = client.post(
-            "/activities/Chess Club/signup?email=newstudent@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Chess Club"
+        email = "newstudent@mergington.edu"
         
-        assert response.status_code == 200
+        # Act
+        response = client.post(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 200
         assert "Signed up" in data["message"]
-        assert "newstudent@mergington.edu" in data["message"]
+        assert email in data["message"]
 
     def test_signup_adds_participant_to_activity(self, client, reset_activities):
         """Test that signup actually adds the participant to the activity"""
-        client.post("/activities/Chess Club/signup?email=newstudent@mergington.edu")
+        # Arrange
+        activity_name = "Chess Club"
+        email = "newstudent@mergington.edu"
         
+        # Act
+        client.post(f"/activities/{activity_name}/signup?email={email}")
         response = client.get("/activities")
         data = response.json()
-        assert "newstudent@mergington.edu" in data["Chess Club"]["participants"]
+        
+        # Assert
+        assert email in data[activity_name]["participants"]
 
     def test_signup_duplicate_student_returns_error(self, client, reset_activities):
         """Test that signing up twice returns an error"""
-        # First signup
-        client.post("/activities/Chess Club/signup?email=newstudent@mergington.edu")
+        # Arrange
+        activity_name = "Chess Club"
+        email = "newstudent@mergington.edu"
         
-        # Second signup with same email
+        # Act
+        client.post(f"/activities/{activity_name}/signup?email={email}")
         response = client.post(
-            "/activities/Chess Club/signup?email=newstudent@mergington.edu"
+            f"/activities/{activity_name}/signup?email={email}"
         )
-        
-        assert response.status_code == 400
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 400
         assert "already signed up" in data["detail"]
 
     def test_signup_already_registered_student_error(self, client, reset_activities):
         """Test that existing participant cannot sign up again"""
-        response = client.post(
-            "/activities/Chess Club/signup?email=michael@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Chess Club"
+        email = "michael@mergington.edu"  # Already registered
         
-        assert response.status_code == 400
+        # Act
+        response = client.post(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 400
         assert "already signed up" in data["detail"]
 
     def test_signup_nonexistent_activity_returns_404(self, client, reset_activities):
         """Test that signup for nonexistent activity returns 404"""
-        response = client.post(
-            "/activities/Nonexistent Activity/signup?email=student@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Nonexistent Activity"
+        email = "student@mergington.edu"
         
-        assert response.status_code == 404
+        # Act
+        response = client.post(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 404
         assert "not found" in data["detail"]
 
     def test_signup_valid_email_format(self, client, reset_activities):
         """Test signup with various valid email formats"""
-        response = client.post(
-            "/activities/Gym Class/signup?email=john.doe@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Gym Class"
+        email = "john.doe@mergington.edu"
         
+        # Act
+        response = client.post(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
+        activities_response = client.get("/activities")
+        data = activities_response.json()
+        
+        # Assert
         assert response.status_code == 200
-        assert "john.doe@mergington.edu" in client.get("/activities").json()["Gym Class"]["participants"]
+        assert email in data[activity_name]["participants"]
 
     def test_signup_different_activities(self, client, reset_activities):
         """Test that a student can sign up for multiple different activities"""
+        # Arrange
         student_email = "multi@mergington.edu"
+        activity1 = "Chess Club"
+        activity2 = "Art Studio"
         
-        response1 = client.post(f"/activities/Chess Club/signup?email={student_email}")
-        response2 = client.post(f"/activities/Art Studio/signup?email={student_email}")
+        # Act
+        response1 = client.post(f"/activities/{activity1}/signup?email={student_email}")
+        response2 = client.post(f"/activities/{activity2}/signup?email={student_email}")
+        data = client.get("/activities").json()
         
+        # Assert
         assert response1.status_code == 200
         assert response2.status_code == 200
-        
-        data = client.get("/activities").json()
-        assert student_email in data["Chess Club"]["participants"]
-        assert student_email in data["Art Studio"]["participants"]
+        assert student_email in data[activity1]["participants"]
+        assert student_email in data[activity2]["participants"]
 
 
 class TestUnregisterFromActivity:
@@ -202,66 +255,100 @@ class TestUnregisterFromActivity:
 
     def test_unregister_success(self, client, reset_activities):
         """Test successful unregistration from an activity"""
-        response = client.delete(
-            "/activities/Chess Club/signup?email=michael@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Chess Club"
+        email = "michael@mergington.edu"
         
-        assert response.status_code == 200
+        # Act
+        response = client.delete(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 200
         assert "Unregistered" in data["message"]
 
     def test_unregister_removes_participant(self, client, reset_activities):
         """Test that unregister actually removes the participant"""
-        client.delete("/activities/Chess Club/signup?email=michael@mergington.edu")
+        # Arrange
+        activity_name = "Chess Club"
+        email = "michael@mergington.edu"
         
+        # Act
+        client.delete(f"/activities/{activity_name}/signup?email={email}")
         response = client.get("/activities")
         data = response.json()
-        assert "michael@mergington.edu" not in data["Chess Club"]["participants"]
+        
+        # Assert
+        assert email not in data[activity_name]["participants"]
 
     def test_unregister_nonexistent_participant_returns_error(self, client, reset_activities):
         """Test that unregistering a non-signed-up student returns an error"""
-        response = client.delete(
-            "/activities/Chess Club/signup?email=notsignup@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Chess Club"
+        email = "notsignup@mergington.edu"
         
-        assert response.status_code == 400
+        # Act
+        response = client.delete(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 400
         assert "not signed up" in data["detail"]
 
     def test_unregister_from_nonexistent_activity_returns_404(self, client, reset_activities):
         """Test that unregistering from nonexistent activity returns 404"""
-        response = client.delete(
-            "/activities/Fake Activity/signup?email=student@mergington.edu"
-        )
+        # Arrange
+        activity_name = "Fake Activity"
+        email = "student@mergington.edu"
         
-        assert response.status_code == 404
+        # Act
+        response = client.delete(
+            f"/activities/{activity_name}/signup?email={email}"
+        )
         data = response.json()
+        
+        # Assert
+        assert response.status_code == 404
         assert "not found" in data["detail"]
 
     def test_unregister_multiple_participants(self, client, reset_activities):
         """Test unregistering multiple participants from same activity"""
-        client.delete("/activities/Music Band/signup?email=lucas@mergington.edu")
-        client.delete("/activities/Music Band/signup?email=ava@mergington.edu")
+        # Arrange
+        activity_name = "Music Band"
+        emails = ["lucas@mergington.edu", "ava@mergington.edu"]
         
+        # Act
+        client.delete(f"/activities/{activity_name}/signup?email={emails[0]}")
+        client.delete(f"/activities/{activity_name}/signup?email={emails[1]}")
         response = client.get("/activities")
         data = response.json()
-        assert len(data["Music Band"]["participants"]) == 0
+        
+        # Assert
+        assert len(data[activity_name]["participants"]) == 0
 
     def test_unregister_then_resign_allowed(self, client, reset_activities):
         """Test that a student can sign up again after unregistering"""
+        # Arrange
+        activity_name = "Tennis Club"
         student_email = "flexible@mergington.edu"
         
-        # Sign up
-        client.post(f"/activities/Tennis Club/signup?email={student_email}")
+        # Act - Sign up
+        client.post(f"/activities/{activity_name}/signup?email={student_email}")
         
-        # Unregister
-        response1 = client.delete(
-            f"/activities/Tennis Club/signup?email={student_email}"
+        # Act - Unregister
+        unregister_response = client.delete(
+            f"/activities/{activity_name}/signup?email={student_email}"
         )
-        assert response1.status_code == 200
         
-        # Sign up again
-        response2 = client.post(
-            f"/activities/Tennis Club/signup?email={student_email}"
+        # Act - Sign up again
+        signin_response = client.post(
+            f"/activities/{activity_name}/signup?email={student_email}"
         )
-        assert response2.status_code == 200
+        
+        # Assert
+        assert unregister_response.status_code == 200
+        assert signin_response.status_code == 200
